@@ -51,61 +51,40 @@ app.post("/items", (req, res) => {
   };
   rows.push(row);
   //created
-  res
-    .status(201)
-    .send(
-      `Added New Item:\nID:${row.id} , TOPIC:${row.topic} , DURATION:${row.duration} , LINK:${row.link} , HIDDEN:${row.hidden}\n NEW ARRAY: ${rows}`
-    );
-  console.log(rows);
+  res.status(201).send(`Added New Item!`);
 });
 //2.READ (/items)
 app.get("/items", (req, res) => {
   //Implement a GET route (/items) to retrieve all items. Also include filter in it(hide/show).
   let output = [];
-  const filter = req.query.filter; //by default it is show, otherwise it can be hide:
+  const filter = req.query.filter;
   if (req.query.filter) {
     if (filter === "hide") {
       //all rows with hidden filter set to true
-      for (let i = 0; i < rows.length; i++) {
-        if (rows[i].hidden === true) {
-          output.push(rows[i]);
-        }
-      }
+      output = rows.filter((row) => row.hidden === true);
       res.status(200).send(output);
     } else if (filter === "show") {
       //all rows with hidden filter set to false
-      for (let i = 0; i < rows.length; i++) {
-        if (rows[i].hidden === false) {
-          output.push(rows[i]);
-        }
-      }
+      output = rows.filter((row) => row.hidden === false);
       res.status(200).send(output);
     } else {
       res.status(404).send("ERROR 404; Page Not Found");
     }
   } else {
-    //by default show only hidden=false
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].hidden === false) {
-        output.push(rows[i]);
-      }
-    }
+    //by default show all items
+    output = [...rows];
     res.status(200).send(output);
   }
 });
 //Implement a GET route (/items/:id) to retrieve a single item by its ID.
 app.get("/items/:id", (req, res) => {
   const id = parseInt(req.params.id);
-  let index = -1;
-  if (id >= 1 && id <= rows.length) {
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].id === id) {
-        index = i;
-        res.status(200).send(rows[i]);
-      }
-    }
-    if (index === -1) {
+  if (!isNaN(id) || (id >= 1 && id <= rows.length)) {
+    const item = rows.find((row) => row.id === id);
+    if (!item) {
       res.status(404).send("Requested Item Not Found");
+    } else {
+      res.status(200).send(item);
     }
   } else {
     res.status(406).send("Given Id is invalid and not acceptable");
@@ -115,11 +94,10 @@ app.get("/items/:id", (req, res) => {
 app.put("/items/:id", (req, res) => {
   //Implement a PUT route (/items/:id) to update an existing item by its ID.
   const id = parseInt(req.params.id);
-  if (id >= 1 && id <= rows.length) {
+  if (!isNaN(id) || (id >= 1 && id <= rows.length)) {
     const newTopic = req.body.topic; //TITLE
     const duration = req.body.duration; //DURATION
     const newLink = req.body.link; //LINK
-
     let newDuration = 0;
     if (duration < 60) {
       newDuration = `${duration} min`;
@@ -128,24 +106,22 @@ app.put("/items/:id", (req, res) => {
     } else {
       newDuration = `${Math.floor(duration / 60)} hr ${duration % 60} min`;
     }
-    let index = -1;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].id === id) {
-        index = i;
-        rows[i].duration = newDuration;
-        rows[i].link = newLink;
-        rows[i].topic = newTopic;
-      }
-    }
+    const index = rows.findIndex((row) => row.id === id);
+
     if (index === -1) {
       res.status(404).send("Requested Item Not Found");
     } else {
       //created
-      res
-        .status(200)
-        .send(
-          `Updated Item:\nID:${rows[index].id} , TOPIC:${rows[index].topic} , DURATION:${rows[index].duration} , LINK:${rows[index].link} , HIDDEN:${rows[index].hidden}`
-        );
+      if (newTopic) {
+        rows[index].topic = newTopic;
+      }
+      if (duration) {
+        rows[index].duration = newDuration;
+      }
+      if (newLink) {
+        rows[index].link = newLink;
+      }
+      res.status(200).send("Updated Item Successfully!");
     }
   } else {
     //
@@ -157,50 +133,54 @@ app.delete("/items/:id", (req, res) => {
   //Implement a DELETE route (/items/:id) to delete an item by its ID.
   const id = parseInt(req.params.id);
   let deleted = {};
-  let index = -1;
   if (id >= 1 && id <= rows.length) {
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].id === id) {
-        deleted = rows[i];
-        index = i;
-        rows.splice(i, 1);
-        console.log(deleted);
-        res.send(`Found and Deleted Item Successfully: \n ${deleted}`);
-      }
-    }
+    const index = rows.findIndex((row) => row.id === id);
     if (index === -1) {
       res.status(404).send("Requested Item Not Found");
+    } else {
+      deleted = rows[index];
+      rows.splice(index, 1);
+      res.send(`Found and Deleted Item Successfully: ${deleted}`);
     }
   } else {
-    // res.status(404).send("Requested Item Not Found");
     res.status(406).send("Given Id is invalid and not acceptable");
   }
 });
 //5 PATCH (/items/:id)
 app.patch("/items/:id", (req, res) => {
   const id = parseInt(req.params.id);
-  const filter = req.body.hidden;
-  let index = -1;
-  let output = "";
-  if (id >= 1 && id <= rows.length) {
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].id === id) {
-        index = i;
-        if (rows[i].hidden === true && filter == "false") {
-          rows[i].hidden = false;
-          output = "Hidden Status Changed to False!";
-        } else if (rows[i].hidden === false && filter == "true") {
-          rows[i].hidden = true;
-          output = "Hidden Status Changed to True!";
-        } else {
-          output = "Sorry, Given Request Cannot be Fulfiled!";
-        }
-      }
-    }
+  let filter = req.body.hidden.toLowerCase(); //true or false
+  if (filter === "true") {
+    filter = true;
+  } else if (filter === "false") {
+    filter = false;
+  } else {
+    res.status(404).send("Given Filter is Invalid!");
+    return;
+  }
+  if ((id >= 1 && id <= rows.length) || !isNaN(id)) {
+    const index = rows.findIndex((row) => row.id === id);
     if (index === -1) {
       res.status(404).send("Requested Item Not Found");
     } else {
-      res.status(200).send(output);
+      if (rows[index].hidden === true && filter === false) {
+        rows[index].hidden = false;
+        // output = "Hidden Status Changed to False!";
+        res
+          .status(200)
+          .send(
+            `Hidden Status Changed to False: ${JSON.stringify(rows[index])}`
+          );
+      } else if (rows[index].hidden === false && filter === true) {
+        rows[index].hidden = true;
+        res
+          .status(200)
+          .send(
+            `Hidden Status Changed to True: ${JSON.stringify(rows[index])}`
+          );
+      } else {
+        res.status(200).send("Sorry, Given Request Cannot be Fulfiled!");
+      }
     }
   } else {
     res.status(406).send("Given Id is invalid and not acceptable");
@@ -208,5 +188,5 @@ app.patch("/items/:id", (req, res) => {
 });
 //listen:
 app.listen(3000, () => {
-  console.log("listening at http://localhost:3000/", rows);
+  console.log("server listening at http://localhost:3000/");
 });
